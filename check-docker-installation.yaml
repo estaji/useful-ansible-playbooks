@@ -1,0 +1,29 @@
+---
+  - name: Create output file
+    hosts: localhost
+    gather_facts: no
+    tasks:
+      - name: Get timestamp
+        ansible.builtin.command:
+          cmd: date +%s
+        register: timestamp 
+
+      - name: Create output.txt
+        ansible.builtin.command:
+          cmd: touch output-{{ timestamp.stdout }}.txt
+
+  - name: Report docker installed nodes
+    hosts: all
+    serial: 1
+    tasks:
+      - name: Check docker installation
+        ansible.builtin.shell: "which docker"
+        ignore_errors: yes
+        register: check_docker
+
+      - name: Print output
+        ansible.builtin.debug:
+          msg: "{{ ansible_hostname }} {{ check_docker.rc }}"
+
+      - name: Save output to file
+        local_action: lineinfile line="{{ ansible_hostname }} {{ check_docker.rc }}" path=./output-{{ hostvars.localhost.timestamp.stdout }}.txt
