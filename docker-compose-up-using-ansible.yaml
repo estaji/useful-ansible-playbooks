@@ -1,0 +1,29 @@
+---
+  - hosts: all
+    gather_facts: no
+
+    vars_files:
+      - config.yaml
+    vars:
+      RE_CREATE: "{{ re_create | default(true) }}"
+      DOCKER_COMPOSE_DIR: "{{ docker_compose_dir | default(playbook_dir) }}"
+      SERVICE_NAME: "{{ service_name | default('web') }}"
+      CONTAINER_NAME: "{{ container_name | default('nginx') }}"
+
+    tasks:
+      - name: remove existing services
+        when: RE_CREATE == true
+        community.docker.docker_compose:
+          project_src: "{{ DOCKER_COMPOSE_DIR }}"
+          state: absent
+
+      - name: create and start services
+        community.docker.docker_compose:
+          project_src: "{{ DOCKER_COMPOSE_DIR }}"
+          state: present
+        register: output
+
+      - name: verify the service is running
+        ansible.builtin.assert:
+          that:
+            - "output.services.{{ SERVICE_NAME }}.{{ CONTAINER_NAME }}.state.running"
