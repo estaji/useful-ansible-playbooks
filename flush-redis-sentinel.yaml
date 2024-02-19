@@ -1,0 +1,28 @@
+---
+- name: Flush redis sentinel
+  hosts: redis
+  become: yes
+  tags: flush-redis-sentinel
+  tasks:
+    - name: check redis-sentinel status
+      ansible.builtin.shell:
+        cmd: docker ps --filter "name=redis" --filter "name=sentinel" --filter status=running -aq | wc -l
+      register: containers
+
+    - name: find master node
+      ansible.builtin.shell:
+        cmd: docker exec redis redis-cli -a {{ redis_sentinel_password }} role | head -n 1
+      register: node_role
+
+    - name: flush the master
+      when: containers.stdout == "2" and node_role.stdout == "master"
+      block:
+        - name: perform flushall
+          when: flush_mode == "all"
+          ansible.builtin.shell:
+            cmd: docker exec redis redis-cli -a {{ redis_sentinel_password }} flushall
+
+        - name: perform flush on specific db
+          when: flush_mode != "all"
+          ansible.builtin.shell:
+            cmd: docker exec redis redis-cli -a {{ redis_sentinel_password }} -n {{ flush_mode }} flushdb
